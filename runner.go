@@ -4,6 +4,7 @@ import (
   "fmt"
   "code.google.com/p/go.net/html"
   "net/http"
+  "crypto/tls"
 )
 
 func Start(uri string) {
@@ -24,9 +25,12 @@ func crawl(queue chan string) {
 
 func enqueueLinks(uri string, queue chan string) {
   fmt.Println("getting", uri)
-  resp, err := http.Get(uri + "/")
+  transport := &http.Transport{ TLSClientConfig: &tls.Config{InsecureSkipVerify: true} }
+  client := http.Client{Transport: transport}
+  resp, err := client.Get(uri)
   fmt.Println(resp, err)
   if err != nil {
+    fmt.Println(err)
     return
   }
   defer resp.Body.Close()
@@ -34,16 +38,19 @@ func enqueueLinks(uri string, queue chan string) {
   p := html.NewTokenizer(resp.Body)
   fmt.Println(p)
   for { 
-      // token type
-      tokenType := p.Next() 
-      fmt.Println(tokenType)
-      if tokenType == html.ErrorToken {
-          return     
-      }       
-      token := p.Token()
-      fmt.Println(token)
-      if tokenType == html.StartTagToken {
-        fmt.Println(token.Attr)
+    // token type
+    tokenType := p.Next() 
+    if tokenType == html.ErrorToken {
+        return     
+    }       
+    token := p.Token()
+    if tokenType == html.StartTagToken && token.DataAtom.String() == "a" {
+      for _, attr := range token.Attr {
+        if attr.Key == "href" {
+          fmt.Println(attr.Val)
+          go func() { queue <- attr.Val }()
+        }
       }
+    }
   }
 }
