@@ -5,6 +5,7 @@ import (
   "code.google.com/p/go.net/html"
   "net/http"
   "crypto/tls"
+  "net/url"
 )
 
 func Start(uri string) {
@@ -18,25 +19,23 @@ func Start(uri string) {
 
 func crawl(queue chan string) {
   for uri := range queue {
-    fmt.Println("uri:", uri)
-    enqueueLinks(uri, queue)
+    if uri != "" {
+      enqueueLinks(uri, queue)
+    }
   }
 }
 
 func enqueueLinks(uri string, queue chan string) {
-  fmt.Println("getting", uri)
+  visit(uri)
   transport := &http.Transport{ TLSClientConfig: &tls.Config{InsecureSkipVerify: true} }
   client := http.Client{Transport: transport}
   resp, err := client.Get(uri)
-  fmt.Println(resp, err)
   if err != nil {
-    fmt.Println(err)
     return
   }
   defer resp.Body.Close()
 
   p := html.NewTokenizer(resp.Body)
-  fmt.Println(p)
   for { 
     // token type
     tokenType := p.Next() 
@@ -47,10 +46,42 @@ func enqueueLinks(uri string, queue chan string) {
     if tokenType == html.StartTagToken && token.DataAtom.String() == "a" {
       for _, attr := range token.Attr {
         if attr.Key == "href" {
-          fmt.Println(attr.Val)
-          go func() { queue <- attr.Val }()
+          absolute := fixUrl(attr.Val, uri)
+          if !isVisited(absolute) {
+            go func() { queue <- absolute }()
+          }
         }
       }
     }
   }
+}
+
+func fixUrl(href, base string) (string) {
+  uri, err := url.Parse(href)
+  if err != nil {
+    return ""
+  }
+  baseUrl, err := url.Parse(base)
+  if err != nil {
+    return ""
+  }
+  uri = baseUrl.ResolveReference(uri)
+  return uri.String()
+  return ""
+}
+
+var visited = make(map[string]bool)
+
+func visit(uri string) {
+  visited[uri] = true
+  display(uri)
+}
+func isVisited(uri string) (bool) {
+  return visited[uri]
+}
+
+func display(uri string) {
+  fmt.Print("\033[A\033[A")
+  fmt.Println("visited:", len(visited))
+  fmt.Println(uri)
 }
