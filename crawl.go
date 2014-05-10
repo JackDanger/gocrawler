@@ -1,26 +1,29 @@
+// In ~/go/src/crawler/crawl.go
 package main
 
 import (
-  "flag"
   "fmt"
+  "flag"
   "os"
+  // all dependencies are specified as directory names, so the slash here is important
+  "net/http"
+  "io/ioutil"
 )
 
-func usage() {
-  fmt.Fprintf(os.Stderr, "usage: crawl http://example.com/path/file.html\n")
-  flag.PrintDefaults()
-  os.Exit(2)
-}
-
 func main() {
-  flag.Usage = usage
   flag.Parse()
 
   args := flag.Args()
+
   if len(args) < 1 {
-    usage()
     fmt.Println("A starting web page is necessary to crawl the internet")
     os.Exit(1)
   }
-  Start(args[0])
+
+  resp, err := http.Get(args[0])
+
+  fmt.Println("Error is:", err)
+
+  body, err := ioutil.ReadAll(resp.Body)
+  fmt.Println(string(body))
 }

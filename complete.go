@@ -1,23 +1,29 @@
 package main
 
 import (
-  "fmt"
-  "code.google.com/p/go.net/html"
-  "net/http"
   "crypto/tls"
+  "flag"
+  "fmt"
+  "github.com/jackdanger/collectlinks"
+  "net/http"
   "net/url"
+  "os"
 )
 
-func Start(uri string) {
-  fmt.Println("starting")
+func main() {
+  flag.Parse()
+
+  args := flag.Args()
+  fmt.Println(args)
+  if len(args) < 1 {
+    fmt.Println("Please specify start page")
+    os.Exit(1)
+  }
+
   queue := make(chan string)
 
-  go func() {queue <- uri}()
+  go func() { queue <- args[0] }()
 
-  crawl(queue)
-}
-
-func crawl(queue chan string) {
   for uri := range queue {
     if uri != "" {
       enqueueLinks(uri, queue)
@@ -35,23 +41,10 @@ func enqueueLinks(uri string, queue chan string) {
   }
   defer resp.Body.Close()
 
-  p := html.NewTokenizer(resp.Body)
-  for { 
-    // token type
-    tokenType := p.Next() 
-    if tokenType == html.ErrorToken {
-        return     
-    }       
-    token := p.Token()
-    if tokenType == html.StartTagToken && token.DataAtom.String() == "a" {
-      for _, attr := range token.Attr {
-        if attr.Key == "href" {
-          absolute := fixUrl(attr.Val, uri)
-          if !isVisited(absolute) {
-            go func() { queue <- absolute }()
-          }
-        }
-      }
+  for _, link := range(collectlinks.All(resp.Body)) {
+    absolute := fixUrl(link, uri)
+    if !isVisited(absolute) {
+      go func() { queue <- absolute }()
     }
   }
 }
@@ -77,10 +70,4 @@ func visit(uri string) {
 }
 func isVisited(uri string) (bool) {
   return visited[uri]
-}
-
-func display(uri string) {
-  fmt.Print("\033[A\033[A")
-  fmt.Println("visited:", len(visited))
-  fmt.Println(uri)
 }
