@@ -10,9 +10,15 @@ import (
   "os"
 )
 
-var visited = make(map[string]bool)  // This is Go's version of a global
-                                     // variable. We'll use it to track
-func main() {                        // which pages we've visited.
+                                     // Putting a variable outside a function is Go's
+var visited = make(map[string]bool)  // version of a global variable.
+                                     // This is a map of string -> bool, so
+                                     // visited["hi"] works but visited[6] doesn't.
+                                     // Setting a value in a map is a simple as:
+                                     //   visited["google.com"] = true
+                                     // and reading is equally so:
+                                     //   visited["google.com"] 
+func main() {
   flag.Parse()
 
   args := flag.Args()
@@ -27,19 +33,17 @@ func main() {                        // which pages we've visited.
   go func() { queue <- args[0] }()
 
   for uri := range queue {
-    if uri != "" {
-      enqueueLinks(uri, queue)
-    }
+    enqueue(uri, queue)
   }
 }
 
-func enqueueLinks(uri string, queue chan string) {
+func enqueue(uri string, queue chan string) {
   fmt.Println("fetching", uri)
-  visited[uri] = true                        // record that we're going to visit this page
+  visited[uri] = true                        // Record that we're going to visit this page
   transport := &http.Transport{
     TLSClientConfig: &tls.Config{
-      InsecureSkipVerify: true
-    }
+      InsecureSkipVerify: true,
+    },
   }
   client := http.Client{Transport: transport}
   resp, err := client.Get(uri)
@@ -48,10 +52,14 @@ func enqueueLinks(uri string, queue chan string) {
   }
   defer resp.Body.Close()
 
-  for _, link := range(collectlinks.All(resp.Body)) {
+  links := collectlinks.All(resp.Body) 
+
+  for _, link := range links {
     absolute := fixUrl(link, uri)
-    if !visited[absolute] {          // don't enqueue a page twice!
-      go func() { queue <- absolute }()
+    if uri != "" {
+      if !visited[absolute] {          // Don't enqueue a page twice!
+        go func() { queue <- absolute }()
+      }
     }
   }
 }
@@ -68,4 +76,3 @@ func fixUrl(href, base string) (string) {
   uri = baseUrl.ResolveReference(uri)
   return uri.String()
 }
-

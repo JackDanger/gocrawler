@@ -10,6 +10,8 @@ import (
   "os"
 )
 
+var visited = make(map[string]bool)
+
 func main() {
   flag.Parse()
 
@@ -26,13 +28,14 @@ func main() {
 
   for uri := range queue {
     if uri != "" {
-      enqueueLinks(uri, queue)
+      enqueue(uri, queue)
     }
   }
 }
 
-func enqueueLinks(uri string, queue chan string) {
-  visit(uri)
+func enqueue(uri string, queue chan string) {
+  fmt.Println("fetching", uri)
+  visited[uri] = true
   transport := &http.Transport{ TLSClientConfig: &tls.Config{InsecureSkipVerify: true} }
   client := http.Client{Transport: transport}
   resp, err := client.Get(uri)
@@ -41,10 +44,14 @@ func enqueueLinks(uri string, queue chan string) {
   }
   defer resp.Body.Close()
 
-  for _, link := range(collectlinks.All(resp.Body)) {
+  links := collectlinks.All(resp.Body) 
+
+  for _, link := range links {
     absolute := fixUrl(link, uri)
-    if !isVisited(absolute) {
-      go func() { queue <- absolute }()
+    if uri != "" {
+      if !visited[absolute] {
+        go func() { queue <- absolute }()
+      }
     }
   }
 }
@@ -60,14 +67,4 @@ func fixUrl(href, base string) (string) {
   }
   uri = baseUrl.ResolveReference(uri)
   return uri.String()
-}
-
-var visited = make(map[string]bool)
-
-func visit(uri string) {
-  visited[uri] = true
-  display(uri)
-}
-func isVisited(uri string) (bool) {
-  return visited[uri]
 }

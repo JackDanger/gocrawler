@@ -25,18 +25,16 @@ func main() {
   go func() { queue <- args[0] }()
 
   for uri := range queue {
-    if uri != "" {              // We'll set invalid URLs to blank strings
-      enqueueLinks(uri, queue)  // so let's never enqueue them.
-    }
+    enqueue(uri, queue)
   }
 }
 
-func enqueueLinks(uri string, queue chan string) {
+func enqueue(uri string, queue chan string) {
   fmt.Println("fetching", uri)
   transport := &http.Transport{
     TLSClientConfig: &tls.Config{
-      InsecureSkipVerify: true
-    }
+      InsecureSkipVerify: true,
+    },
   }
   client := http.Client{Transport: transport}
   resp, err := client.Get(uri)
@@ -45,9 +43,15 @@ func enqueueLinks(uri string, queue chan string) {
   }
   defer resp.Body.Close()
 
-  for _, link := range collectlinks.All(resp.Body) {
+  links := collectlinks.All(resp.Body) 
+
+  for _, link := range links {
     absolute := fixUrl(link, uri)      // Don't enqueue the raw thing we find,
-    go func() { queue <- absolute }()  // fix it first.
+                                       // fix it first.
+    if uri != "" {                     // We'll set invalid URLs to blank strings
+                                       // so let's never send those to the channel. 
+      go func() { queue <- absolute }()
+    }
   }
 }
 

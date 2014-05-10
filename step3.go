@@ -28,6 +28,8 @@ func main() {
 
   for _, link := range(links) {  // 'for' + 'range' in Go is like .each in Ruby or
     fmt.Println(link)            // an iterator in many other languages.
-  }
-}
-
+  }                              // When we call range() on a list each iteration of the
+}                                // contents will set two variables: the index and the value.
+                                 // Here we don't care about the index so we set it to '_'
+                                 // because if we write 'for index, link := range(links)'
+                                 // Go would point out that we left 'index' unused.

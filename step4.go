@@ -20,20 +20,25 @@ func main() {
   }
 
   queue := make(chan string)         // This gives you a new channel that
-                                     // receives and delivers strings
+                                     // receives and delivers strings. There's nothing
+                                     // more you need to do to set it up – it's
+                                     // all ready to have data fed into it.
 
-  go func() {            // saying 'go someFunction' means "run someFunction asynchronously"
+  go func() {            // saying "go someFunction()" means
+                         // "run someFunction() asynchronously"
     queue <- args[0]     // This means "put args[0] into the channel".
-  }()                    // You don't have to understand this, but 'go' takes
-                         // a function call to execute.
+  }()
 
-                              // 'range' is such an effective iterator keyword
-  for uri := range queue {    // that if you ask for the range of a channel it'll
-                              // do a permanent blocking read of all the channel contents.
-    enqueueLinks(uri, queue)  // we pass each URL we find off to be read & enqueued
+  for uri := range queue {     // 'range' is such an effective iterator keyword
+                               // that if you ask for the range of a channel it'll
+                               // do an efficient, continuous blocking read of
+                               // all the channel contents.
+
+    enqueue(uri, queue)  // we pass each URL we find off to be read & enqueued
   }
 }
-func enqueueLinks(uri string, queue chan string) {
+
+func enqueue(uri string, queue chan string) {
   fmt.Println("fetching", uri)
   tlsConfig := &tls.Config{
     InsecureSkipVerify: true,
@@ -48,7 +53,9 @@ func enqueueLinks(uri string, queue chan string) {
   }
   defer resp.Body.Close()
 
-  for _, link := range collectlinks.All(resp.Body) {  // Here I inline what used to be a 'links' variable
+  links := collectlinks.All(resp.Body)
+
+  for _, link := range links {
     go func() { queue <- link }() // We asynchronously enqueue what we've found
   }
 }
