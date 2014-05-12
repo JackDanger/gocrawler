@@ -16,8 +16,6 @@ func usage() {
 	os.Exit(2)
 }
 
-var visited = make(map[string]bool)
-
 func main() {
 	flag.Usage = usage
 	flag.Parse()
@@ -31,17 +29,29 @@ func main() {
 	}
 
 	queue := make(chan string)
+	filteredQueue := make(chan string)
 
 	go func() { queue <- args[0] }()
+	go filterQueue(queue, filteredQueue)
 
-	for uri := range queue {
+	// pull from the filtered queue, add to the unfiltered queue
+	for uri := range filteredQueue {
 		enqueue(uri, queue)
+	}
+}
+
+func filterQueue(in chan string, out chan string) {
+	var seen = make(map[string]bool)
+	for val := range in {
+		if !seen[val] {
+			seen[val] = true
+			out <- val
+		}
 	}
 }
 
 func enqueue(uri string, queue chan string) {
 	fmt.Println("fetching", uri)
-	visited[uri] = true
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -59,9 +69,7 @@ func enqueue(uri string, queue chan string) {
 	for _, link := range links {
 		absolute := fixUrl(link, uri)
 		if uri != "" {
-			if !visited[absolute] {
-				go func() { queue <- absolute }()
-			}
+			go func() { queue <- absolute }()
 		}
 	}
 }
