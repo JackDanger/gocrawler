@@ -34,10 +34,19 @@ func main() {
 	go func() { queue <- args[0] }()
 	go filterQueue(queue, filteredQueue)
 
+	// introduce a bool channel to synchronize execution of concurrently running crawlers
+	done := make(chan bool)
+
 	// pull from the filtered queue, add to the unfiltered queue
-	for uri := range filteredQueue {
-		enqueue(uri, queue)
+	for i := 0; i < 5; i++ {
+		go func() {
+			for uri := range filteredQueue {
+				enqueue(uri, queue)
+			}
+			done <- true
+		}()
 	}
+	<-done
 }
 
 func filterQueue(in chan string, out chan string) {
